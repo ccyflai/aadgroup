@@ -10,8 +10,8 @@
     Uses Azure CLI (az) instead of the Microsoft Graph PowerShell SDK, so no admin
     approval for Graph PowerShell modules is required.
 
-.PARAMETER GroupName
-    The display name of the AAD security group.
+.PARAMETER Group
+    The display name or object ID (GUID) of the AAD security group.
 
 .PARAMETER MemberFile
     Path to a text file containing one email address per line.
@@ -25,13 +25,17 @@
         - Logged in: az login
 
 .EXAMPLE
-    .\Sync-AADGroupMembers.ps1 -GroupName "My Security Group" -MemberFile ".\members.txt"
+    .\Sync-AADGroupMembers.ps1 -Group "My Security Group" -MemberFile ".\members.txt"
+
+.EXAMPLE
+    .\Sync-AADGroupMembers.ps1 -Group "00000000-0000-0000-0000-000000000000" -MemberFile ".\members.txt"
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)]
-    [string]$GroupName,
+    [Alias('GroupName')]
+    [string]$Group,
 
     [Parameter(Mandatory)]
     [string]$MemberFile
@@ -71,25 +75,38 @@ if ($desiredEmails.Count -eq 0) {
 
 Write-Host "Desired members from file: $($desiredEmails.Count)"
 
-# --- Verify group exists ---
-$groupsJson = az ad group list --filter "displayName eq '$GroupName'" --query "[].{id:id, displayName:displayName}" -o json 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Failed to search for group '$GroupName'. Verify your permissions."
-    return
-}
-$matchedGroups = $groupsJson | ConvertFrom-Json
+# --- Resolve group by ID or display name ---
+$guidPattern = '^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$'
+if ($Group -match $guidPattern) {
+    # Treat as object ID — look up directly
+    $groupJson = az ad group show --group $Group --query "{id:id, displayName:displayName}" -o json 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "No AAD group found with ID '$Group'. Verify the ID and your permissions."
+        return
+    }
+    $group = $groupJson | ConvertFrom-Json
+    $groupId = $group.id
+} else {
+    # Treat as display name
+    $groupsJson = az ad group list --filter "displayName eq '$Group'" --query "[].{id:id, displayName:displayName}" -o json 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Failed to search for group '$Group'. Verify your permissions."
+        return
+    }
+    $matchedGroups = $groupsJson | ConvertFrom-Json
 
-if ($matchedGroups.Count -eq 0) {
-    Write-Error "No AAD group found with name '$GroupName'."
-    return
+    if ($matchedGroups.Count -eq 0) {
+        Write-Error "No AAD group found with name '$Group'."
+        return
+    }
+    if ($matchedGroups.Count -gt 1) {
+        Write-Error "Multiple AAD groups found with name '$Group'. Use the object ID instead:"
+        $matchedGroups | ForEach-Object { Write-Host "  $($_.id) - $($_.displayName)" }
+        return
+    }
+    $groupId = $matchedGroups[0].id
+    $group = $matchedGroups[0]
 }
-if ($matchedGroups.Count -gt 1) {
-    Write-Error "Multiple AAD groups found with name '$GroupName'. Use an exact group ID instead:"
-    $matchedGroups | ForEach-Object { Write-Host "  $($_.id) - $($_.displayName)" }
-    return
-}
-$groupId = $matchedGroups[0].id
-$group = $matchedGroups[0]
 Write-Host "Target group: $($group.displayName)"
 
 # --- Get current group members ---
