@@ -11,14 +11,20 @@ Synchronizes Azure AD security group membership with a text file of email addres
 ## Usage
 
 ```powershell
-.\Sync-AADGroupMembers.ps1 -GroupName "My Security Group" -MemberFile ".\members.txt"
+.\Sync-AADGroupMembers.ps1 -Group "My Security Group" -MemberFile ".\members.txt"
+```
+
+You can also pass a group object ID directly:
+
+```powershell
+.\Sync-AADGroupMembers.ps1 -Group "00000000-0000-0000-0000-000000000000" -MemberFile ".\members.txt"
 ```
 
 ### Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `GroupName` | Display name of the AAD security group |
+| `Group` | Display name or object ID (GUID) of the AAD security group |
 | `MemberFile` | Path to text file with one email per line |
 
 ### Preview Mode
@@ -26,7 +32,7 @@ Synchronizes Azure AD security group membership with a text file of email addres
 Use `-WhatIf` to preview changes without applying them:
 
 ```powershell
-.\Sync-AADGroupMembers.ps1 -GroupName "My Security Group" -MemberFile ".\members.txt" -WhatIf
+.\Sync-AADGroupMembers.ps1 -Group "My Security Group" -MemberFile ".\members.txt" -WhatIf
 ```
 
 ## Member File Format
@@ -46,7 +52,7 @@ alias@example.com
 ## How It Works
 
 1. Reads email addresses from the member file
-2. Looks up the AAD group by name
+2. Looks up the AAD group by name or ID
 3. Gets current group members
 4. **Removes** members not in the file
 5. **Adds** members from the file not already in the group
@@ -65,7 +71,7 @@ winget install Microsoft.AzureCLI
 az login
 
 # Run the sync
-.\Sync-AADGroupMembers.ps1 -GroupName "App Owners" -MemberFile ".\owners.txt"
+.\Sync-AADGroupMembers.ps1 -Group "App Owners" -MemberFile ".\owners.txt"
 ```
 
 ### Update Group Members
@@ -83,4 +89,8 @@ az login
 Verify the group name matches exactly in Azure AD.
 
 **"Multiple AAD groups found"**
-Use an exact group ID instead of the display name to avoid ambiguity.
+Pass the group's object ID instead of the display name to avoid ambiguity:
+
+```powershell
+.\Sync-AADGroupMembers.ps1 -Group "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -MemberFile ".\members.txt"
+```
