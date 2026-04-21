@@ -14,7 +14,7 @@ Single-repo PowerShell script (`Sync-AADGroupMembers.ps1`) that syncs Azure AD s
 There is no build step, test suite, linter, or CI pipeline. Verify changes by running:
 
 ```powershell
-.\Sync-AADGroupMembers.ps1 -GroupName "Test Group" -MemberFile ".\members.txt" -WhatIf
+.\Sync-AADGroupMembers.ps1 -Group "Test Group" -MemberFile ".\members.txt" -WhatIf
 ```
 
 `-WhatIf` is supported via `[CmdletBinding(SupportsShouldProcess)]` — it previews adds/removes without applying them.
